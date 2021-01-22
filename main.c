@@ -75,17 +75,18 @@ uint8_t gCurrentPatternNumber = 0;			// Index number of which pattern is current
 void RTC_init(void)
 {
 	RTC.CLKSEL = RTC_CLKSEL_INT32K_gc;		// 32.768kHz Internal Crystal Oscillator (INT32K)
-	while (RTC.STATUS > 0);					// Wait for all register to be synchronized
-	RTC.PER = 0xff;							// Max for overflow (128 Hz, 7.78ms)
-	RTC.CMP = 0x08;							// Compare at 244us
+	while (RTC.STATUS > 0);				// Wait for all register to be synchronized
+	RTC.PER = 0xff;					// Max for overflow (128 Hz, 7.78ms)
+	RTC.CMP = 0x08;					// Compare at 244us
 	RTC.CNT = 0x0;
-	RTC.INTCTRL |= RTC_OVF_bm;				// Enable overflow Interrupt which will trigger ISR
-	RTC.INTCTRL |= RTC_CMP_bm;				// Enable compare Interrupt which will trigger ISR
+	RTC.INTCTRL |= RTC_OVF_bm;			// Enable overflow Interrupt which will trigger ISR
+	RTC.INTCTRL |= RTC_CMP_bm;			// Enable compare Interrupt which will trigger ISR
 	RTC.CTRLA = RTC_PRESCALER_DIV1_gc		// 32768 / 1 = 32768 (Hz)
-	| RTC_RTCEN_bm							// Enable: enabled
-	| RTC_RUNSTDBY_bm;						// Run In Standby: enabled
+	| RTC_RTCEN_bm					// Enable: enabled
+	| RTC_RUNSTDBY_bm;				// Run In Standby: enabled
 
-	RTC.PITINTCTRL = RTC_PI_bm;				// Periodic Interrupt: enabled
+	while (RTC.STATUS > 0 || RTC.PITSTATUS);	// Wait for all register to be synchronized
+	RTC.PITINTCTRL = RTC_PI_bm;			// Periodic Interrupt: enabled
 	RTC.PITCTRLA = RTC_PERIOD_CYC512_gc		// 32768 / 512 = 64Hz, 15.6ms
 	| RTC_PITEN_bm;							// Enable: enabled
 }
@@ -93,13 +94,13 @@ void RTC_init(void)
 ISR(RTC_CNT_vect)
 {
 	if (RTC.INTFLAGS & RTC_CMP_bm)	{		// Interrupt created by the
-		RTC.INTFLAGS = RTC_CMP_bm;          // Clear flag by writing '1':
-		PORTA.DIR = 0x00;                   // Set all pin to inputs to turn off LED's
+		RTC.INTFLAGS = RTC_CMP_bm;          	// Clear flag by writing '1':
+		PORTA.DIR = 0x00;                   	// Set all pin to inputs to turn off LED's
 	}
 	if (RTC.INTFLAGS & RTC_OVF_bm) {
-		RTC.INTFLAGS = RTC_OVF_bm;          // Clear flag by writing '1':
-		PORTA.DIR = ledPinDir[fadeLed];     // PA1 & PA2 outputs
-		PORTA_OUT = ledPinOut[fadeLed];     // PA1 SET
+		RTC.INTFLAGS = RTC_OVF_bm;          	// Clear flag by writing '1':
+		PORTA.DIR = ledPinDir[fadeLed];     	// PA1 & PA2 outputs
+		PORTA_OUT = ledPinOut[fadeLed];     	// PA1 SET
 	}
 }
 
@@ -189,7 +190,7 @@ void PORT_init(void)
 	for (uint8_t pin = 0; pin < 8; pin++) {
 		(&PORTA.PIN0CTRL)[pin] = PORT_PULLUPEN_bm | PORT_ISC_INPUT_DISABLE_gc; // Disable input buffer and enable the internal pull-up on PAx pins to conserve energy
 	}
-	PORTA.PIN6CTRL &= ~(PORT_ISC_INPUT_DISABLE_gc);
+	PORTA.PIN6CTRL = PORT_PULLUPEN_bm | PORT_ISC_INTDISABLE_gc;
 }
 
 int main(void)
